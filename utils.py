@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 """
-共享工具模块 — 姓氏加载、名提取、位置键生成
+共享工具模块 — 姓氏加载、名提取、位置键生成、繁简转换
 """
+
+__version__ = '1.0.0'
+
 import os
 
 _BASE_DIR = os.path.dirname(os.path.abspath(__file__))
