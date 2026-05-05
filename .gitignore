@@ -1,0 +1,5 @@
+__pycache__/
+.DS_Store
+.cache_givenname.csv
+*.pyc
+*_marked.csv
