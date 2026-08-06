@@ -7,7 +7,6 @@
   python scripts/evaluate.py --limit 100000     # 限制样本数
 """
 import os, sys, argparse, time
-from collections import defaultdict
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 
@@ -131,7 +130,6 @@ def main():
     rows, n, elapsed = evaluate(args.limit)
     print(f'  样本 {n:,}, 耗时 {elapsed:.0f}s')
 
-    models = ['gender', 'decade', 'zodiac', 'season', 'solar']
     print(f'\n{"模型":<8} {"准确率":>8} {"±1准确率":>8} {"覆盖率":>8}')
     for r in rows:
         print(f'{r["model"]:<8} {r["acc"]:>8.2%} {r["near"]:>8.2%} {r["coverage"]:>8.2%}')

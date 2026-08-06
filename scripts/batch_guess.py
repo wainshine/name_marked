@@ -66,7 +66,7 @@ def process(name, mode, models):
 
 
 def detect_mode(first_line):
-    return VALID_MODES.get(first_line.lstrip('﻿').lower())
+    return VALID_MODES.get(first_line.lstrip('\ufeff').lower())
 
 
 def main():

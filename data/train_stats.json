@@ -1,5 +1,5 @@
 {
-  "input": "/Users/wainshine/newAI/yiname/iddata/有效数据.txt",
+  "input": "有效数据.txt",
   "total_lines": 33269152,
   "train_rows": 29948686,
   "holdout_rows": 3320466,
@@ -28,5 +28,5 @@
     "solar_char": 21040,
     "solar_name": 179184
   },
-  "elapsed_sec": 245.8
+  "elapsed_sec": 252.1
 }

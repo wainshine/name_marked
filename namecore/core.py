@@ -44,11 +44,13 @@ class BayesGuesser:
         return table
 
     def _load_table(self, csv_name):
-        """CSV 加载，自动维护 .pkl 缓存"""
+        """优先读 .pkl 缓存；CSV 存在且更新时重建缓存。CSV 缺失时信任 pkl"""
         csv_path = os.path.join(_TABLES_DIR, csv_name)
         pkl_path = csv_path + '.pkl'
-        if os.path.exists(pkl_path) and os.path.exists(csv_path) and \
-                os.path.getmtime(pkl_path) >= os.path.getmtime(csv_path):
+        pkl_ok = os.path.exists(pkl_path) and (
+            not os.path.exists(csv_path) or
+            os.path.getmtime(pkl_path) >= os.path.getmtime(csv_path))
+        if pkl_ok:
             with open(pkl_path, 'rb') as f:
                 return pickle.load(f)
         if not os.path.exists(csv_path):

@@ -10,7 +10,7 @@
   python scripts/train.py --input /path/有效数据.txt
   python scripts/train.py --input /path/有效数据.txt --holdout 0.1 --min-name-freq 10
 """
-import os, sys, json, zlib, argparse, subprocess, shutil, time
+import os, sys, json, zlib, argparse, subprocess, random, time
 from array import array
 from collections import Counter
 
@@ -154,7 +154,7 @@ class CountTable:
             self.d[key] = row
         row[idx] += 1
 
-    def write(self, path, header, key_name):
+    def write(self, path, header):
         lines = [header]
         for k in sorted(self.d.keys()):
             lines.append(k + ',' + ','.join(str(x) for x in self.d[k]))
@@ -193,12 +193,12 @@ def main():
     bad_id = 0
     no_name = 0
     holdout_n = 0
+    holdout_rows = []
     gender_tot = [0, 0]
     decade_tot = [0] * 6
     id_len_dist = Counter()
 
-    with open(inpath, 'r', encoding=args.encoding, errors='replace') as fin, \
-         open(HOLDOUT_FILE, 'w', encoding='utf-8') as fho:
+    with open(inpath, 'r', encoding=args.encoding, errors='replace') as fin:
         for line in fin:
             total += 1
             p = line.split(',')
@@ -218,7 +218,7 @@ def main():
                 continue
             if zlib.crc32(name.encode('utf-8')) % 100 < holdout_mod:
                 holdout_n += 1
-                fho.write(f'{name},{id_str}\n')
+                holdout_rows.append(f'{name},{id_str}\n')
                 continue
             gender, year, month, day = parsed
             gi = 1 if gender == 'male' else 0
@@ -238,6 +238,13 @@ def main():
                     solar_char.bump(k, li)
             if total % 5000000 == 0:
                 print(f'  {total // 10000}W 行 ({time.time() - t0:.0f}s)')
+
+    # holdout 洗牌后落盘（输入按编码前缀有序，不洗牌则 --limit 小样本评估有偏）
+    random.seed(42)
+    random.shuffle(holdout_rows)
+    with open(HOLDOUT_FILE, 'w', encoding='utf-8') as fho:
+        fho.writelines(holdout_rows)
+    del holdout_rows
 
     train_n = total - bad_id - no_name - holdout_n
     print(f'[pass1] 完成: 总行 {total:,}, 训练 {train_n:,}, holdout {holdout_n:,}, '
@@ -325,28 +332,28 @@ def main():
     print('写频率表 ...')
     written = {}
     written['gender_char'] = gender_char.write(
-        os.path.join(TABLES_DIR, 'gender_char.csv'), 'char_pos,female,male', 'char_pos')
+        os.path.join(TABLES_DIR, 'gender_char.csv'), 'char_pos,female,male')
     written['gender_name'] = gender_name.write(
-        os.path.join(TABLES_DIR, 'gender_name.csv'), 'given_name,female,male', 'given_name')
+        os.path.join(TABLES_DIR, 'gender_name.csv'), 'given_name,female,male')
     hdr = 'char_pos,' + ','.join(DECADE_CLASSES)
-    written['decade_char'] = decade_char.write(os.path.join(TABLES_DIR, 'decade_char.csv'), hdr, 'char_pos')
+    written['decade_char'] = decade_char.write(os.path.join(TABLES_DIR, 'decade_char.csv'), hdr)
     hdr = 'given_name,' + ','.join(DECADE_CLASSES)
-    written['decade_name'] = decade_name.write(os.path.join(TABLES_DIR, 'decade_name.csv'), hdr, 'given_name')
+    written['decade_name'] = decade_name.write(os.path.join(TABLES_DIR, 'decade_name.csv'), hdr)
     hdr = 'char_pos,' + ','.join(ZODIACS)
-    written['zodiac_char'] = zodiac_char.write(os.path.join(TABLES_DIR, 'zodiac_char.csv'), hdr, 'char_pos')
+    written['zodiac_char'] = zodiac_char.write(os.path.join(TABLES_DIR, 'zodiac_char.csv'), hdr)
     hdr = 'given_name,' + ','.join(ZODIACS)
-    written['zodiac_name'] = zodiac_name.write(os.path.join(TABLES_DIR, 'zodiac_name.csv'), hdr, 'given_name')
+    written['zodiac_name'] = zodiac_name.write(os.path.join(TABLES_DIR, 'zodiac_name.csv'), hdr)
     hdr = 'char_pos,' + ','.join(SEASONS)
-    written['season_char'] = season_char.write(os.path.join(TABLES_DIR, 'season_char.csv'), hdr, 'char_pos')
+    written['season_char'] = season_char.write(os.path.join(TABLES_DIR, 'season_char.csv'), hdr)
     hdr = 'given_name,' + ','.join(SEASONS)
-    written['season_name'] = season_name.write(os.path.join(TABLES_DIR, 'season_name.csv'), hdr, 'given_name')
+    written['season_name'] = season_name.write(os.path.join(TABLES_DIR, 'season_name.csv'), hdr)
     hdr = 'char_pos,' + ','.join(SOLAR_TERMS)
-    written['solar_char'] = solar_char.write(os.path.join(TABLES_DIR, 'solar_char.csv'), hdr, 'char_pos')
+    written['solar_char'] = solar_char.write(os.path.join(TABLES_DIR, 'solar_char.csv'), hdr)
     hdr = 'given_name,' + ','.join(SOLAR_TERMS)
-    written['solar_name'] = solar_name.write(os.path.join(TABLES_DIR, 'solar_name.csv'), hdr, 'given_name')
+    written['solar_name'] = solar_name.write(os.path.join(TABLES_DIR, 'solar_name.csv'), hdr)
 
     stats = {
-        'input': inpath,
+        'input': os.path.basename(inpath),
         'total_lines': total,
         'train_rows': train_n,
         'holdout_rows': holdout_n,

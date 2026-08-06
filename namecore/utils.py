@@ -132,31 +132,3 @@ def to_simplified(text):
             print(f'[繁体检测] 比例 {ratio * 100:.0f}%，自动转换简体')
             _trad_warned = True
     return _opencc.convert(text)
-
-
-def extract_given(name, mode):
-    """根据输入模式提取名部分。auto/namea: 完整姓名  namec: 名"""
-    if mode in ('auto', 'namea'):
-        return given_name(name)
-    if mode == 'namec':
-        return name
-    return name
-
-
-def mode_keys(name, mode):
-    """
-    根据模式返回位置键列表
-    auto: 姓名→提取名→pos_keys   namec: 名→pos_keys
-    named: 单字名_p0  namee: 双字首字_p1  namef: 双字末字_p2
-    """
-    if mode in ('auto', 'namea'):
-        return pos_keys(given_name(name))
-    if mode == 'namec':
-        return pos_keys(name)
-    if mode == 'named':
-        return [f'{name}_p0'] if name else []
-    if mode == 'namee':
-        return [f'{name}_p1'] if name else []
-    if mode == 'namef':
-        return [f'{name}_p2'] if name else []
-    raise ValueError(f"Unknown mode: {mode}, expected auto/namec/named/namee/namef")
