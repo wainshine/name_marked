@@ -3,3 +3,5 @@ __pycache__/
 .cache_givenname.csv
 *.pyc
 *_marked.csv
+data/holdout.txt
+namecore/tables/*.csv

@@ -1,0 +1,32 @@
+{
+  "input": "/Users/wainshine/newAI/yiname/iddata/有效数据.txt",
+  "total_lines": 33269152,
+  "train_rows": 29948686,
+  "holdout_rows": 3320466,
+  "bad_id_rows": 0,
+  "no_name_rows": 0,
+  "unique_given_names": 179184,
+  "male_ratio": 0.6502491628514185,
+  "decade_distribution": {
+    "1950s前": 2787723,
+    "1960s": 5353501,
+    "1970s": 8571367,
+    "1980s": 10908329,
+    "1990s": 2327766,
+    "2000s": 0
+  },
+  "has_real_2000s": false,
+  "table_rows": {
+    "gender_char": 21040,
+    "gender_name": 179184,
+    "decade_char": 21040,
+    "decade_name": 179184,
+    "zodiac_char": 21040,
+    "zodiac_name": 179184,
+    "season_char": 21040,
+    "season_name": 179184,
+    "solar_char": 21040,
+    "solar_name": 179184
+  },
+  "elapsed_sec": 245.8
+}
