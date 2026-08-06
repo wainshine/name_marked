@@ -243,7 +243,7 @@ def main():
     print(f'[pass1] 完成: 总行 {total:,}, 训练 {train_n:,}, holdout {holdout_n:,}, '
           f'非法ID {bad_id:,}, 无名 {no_name:,} ({time.time() - t0:.0f}s)')
     print(f'  唯一人名: {len(name_total):,}, 男性占比: {gender_tot[1] / max(1, sum(gender_tot)):.4f}')
-    print(f'  证件号长度分布: {dict(sorted(id_len_dist.items()))}')
+    print(f'  编码长度分布: {dict(sorted(id_len_dist.items()))}')
     print(f'  年代分布: {dict(zip(DECADE_CLASSES, decade_tot))}')
 
     # ---------- pass 2 ----------

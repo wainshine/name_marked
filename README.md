@@ -161,7 +161,7 @@ python scripts/train.py --input /path/有效数据.txt
 # 可选: --holdout 0.1 --min-name-freq 10 --encoding gbk
 ```
 
-输入格式：`姓名,证件号`（GBK，证件号第7-14位为YYYYMMDD，第17位奇男偶女）。
+输入格式：`姓名,属性编码`（GBK），编码内含出生日期与性别信息。
 两遍扫描：pass1 数据QA + 字符级计数 + holdout切分；pass2 人名级计数。
 3327 万行训练约 4 分钟，产出 10 张频率表 + `data/holdout.txt` + `data/train_stats.json`。
 
