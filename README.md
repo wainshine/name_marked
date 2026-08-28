@@ -1,6 +1,6 @@
 # Name Marked — 中文姓名属性识别系统
 
-> v2.0.0（重构版）
+> v2.1.0
 
 基于双层贝叶斯算法，从中文姓名中识别性别、出生年代、星座、四季、节气五种属性。
 3327 万条真实数据训练，332 万条真实 holdout 评估。
@@ -179,6 +179,26 @@ python scripts/train.py --input /path/有效数据.txt
 python scripts/evaluate.py                  # 评估当前模型
 python scripts/evaluate.py --limit 100000   # 限制样本数
 ```
+
+## 下游导出
+
+供 NameMoe `UniHan_Year` 表使用的字级年代分布：
+
+```bash
+python scripts/export_unihan_year.py   # → namecore/tables/unihan_year.csv
+```
+
+由 `decade_char.csv` 跨位置（p0~p3）按字求和生成，每字每十年一行。**格式冻结**：
+
+```
+UniHan,Year,TF
+丁,1950-01-01,1527
+```
+
+- 编码 utf-8-sig；排序：字（Unicode 升序）→ 字内年代升序
+- 年代映射：`1950s前→1950-01-01`、`1960s→1960-01-01` … `2000s→2000-01-01`
+- 1950s前–1990s 为真实样本计数；**2000s 为插值估计**（见上文）
+- 年度/日度粒度暂不提供（数据稀疏，待新数据源补充）
 
 ## 运行测试
 
