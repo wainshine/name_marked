@@ -1,6 +1,6 @@
 # Name Marked — 中文姓名属性识别系统
 
-> v2.1.0
+> v2.2.0
 
 基于双层贝叶斯算法，从中文姓名中识别性别、出生年代、星座、四季、节气五种属性。
 3327 万条真实数据训练，332 万条真实 holdout 评估。
@@ -18,21 +18,28 @@ name_marked/
 │   ├── zodiac.py                    #   星座（12类）
 │   ├── season.py                    #   四季（4类）
 │   ├── solar.py                     #   节气（24类）
-│   └── tables/                      #   频率表（10个CSV + .pkl缓存）
+│   └── tables/                      #   频率表（10张模型表CSV + 2张导出契约 + .pkl缓存）
 │       ├── gender_char.csv          #     字符级：字-位置 → 性别计数
 │       ├── gender_name.csv          #     人名级：名 → 性别计数
 │       ├── decade_char.csv / decade_name.csv
 │       ├── zodiac_char.csv / zodiac_name.csv
 │       ├── season_char.csv / season_name.csv
-│       └── solar_char.csv / solar_name.csv
+│       ├── solar_char.csv / solar_name.csv
+│       ├── unihan_year.csv          #     导出契约：字级年代分布（→ NameMoe）
+│       └── gender_guess.csv         #     导出契约：性别回退表（→ name_nlp s12）
 ├── scripts/
 │   ├── train.py                     # 统一训练管线（单扫全数据，10表一次生成）
 │   ├── evaluate.py                  # holdout 评估
-│   └── batch_guess.py               # 批处理 CLI
+│   ├── batch_guess.py               # 批处理 CLI
+│   ├── export_unihan_year.py        # 导出 unihan_year.csv
+│   └── export_gender_guess.py       # 导出 gender_guess.csv
+├── docs/
+│   ├── CHANGELOG.md                 # 更新记录
+│   └── 有效数据-格式契约.md          # 训练数据格式契约 + 敏感数据处置规则
 ├── data/
 │   ├── ref/                         # 姓氏表、标准汉字表、ChineseNames缓存
 │   ├── samples/                     # 测试样本
-│   ├── holdout.txt                  # 评估集（训练时生成，不入库）
+│   ├── holdout.txt                  # 评估集（敏感衍生物，训练时生成、评估后即删，不常驻）
 │   └── train_stats.json             # 训练统计
 ├── tests/test_guessers.py           # 单元测试（42项）
 └── README.md / VERSION / LICENSE
@@ -162,8 +169,11 @@ python scripts/train.py --input /path/有效数据.txt
 ```
 
 输入格式：`姓名,属性编码`（GBK），编码内含出生日期与性别信息。
+**格式契约与敏感数据处置见 [docs/有效数据-格式契约.md](docs/有效数据-格式契约.md)**：
+该文件为敏感个人数据，不留档/不备份/不入 git；需要重训时向用户申请从移动硬盘拷贝，用完即删。
 两遍扫描：pass1 数据QA + 字符级计数 + holdout切分；pass2 人名级计数。
 3327 万行训练约 4 分钟，产出 10 张频率表 + `data/holdout.txt` + `data/train_stats.json`。
+`holdout.txt` 同为敏感衍生物（含姓名+编码），评估完成后即删。
 
 ### 2000s 插值
 
@@ -180,7 +190,18 @@ python scripts/evaluate.py                  # 评估当前模型
 python scripts/evaluate.py --limit 100000   # 限制样本数
 ```
 
+评估集 `data/holdout.txt` 按敏感数据规则不常驻本机；需评估时先重训生成，用完即删。
+
 ## 下游导出
+
+供 name_nlp s12 性别回填使用的回退表（v2.2.0 起替代跨仓 import）：
+
+```bash
+python scripts/export_gender_guess.py  # → namecore/tables/gender_guess.csv (name,boy_prob)
+```
+
+对 name_nlp `NameC词频-修正.csv` 全集中未被 `gender_name.csv` 覆盖的名，预计算
+`guess_gender("王"+名)` 的男孩概率。**何时必须重导**：name_nlp 的 NameC 修正表重建后。
 
 供 NameMoe `UniHan_Year` 表使用的字级年代分布：
 
@@ -220,6 +241,8 @@ python tests/test_guessers.py   # 42 项测试
 - 旧 API `from gender_guess import guess` → `from namecore import guess_gender`
 - 旧 CLI `python batch_guess.py` → `python scripts/batch_guess.py`（参数不变）
 - 旧构建脚本 `build_*.py` → `python scripts/train.py`（单脚本全量）
+
+更新记录见 [docs/CHANGELOG.md](docs/CHANGELOG.md)。
 
 ## License
 

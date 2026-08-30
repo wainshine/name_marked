@@ -49,9 +49,12 @@ DECADE_IDX = {d: i for i, d in enumerate(DECADE_CLASSES)}
 
 
 def parse_id(id_str):
-    """返回 (gender, year, month, day)，非法返回 None"""
+    """返回 (gender, year, month, day)，非法返回 None。
+    编码位契约(见 docs/有效数据-格式契约.md): 7~14位=出生日期YYYYMMDD, 17位=性别(奇男偶女)。
+    15位老编码(一代身份证)不作猜测性兼容, 计入丢弃统计。"""
     n = len(id_str)
     if n < 17:
+        parse_id.dropped_short += 1  # 显式计数, 不再静默丢弃
         return None
     try:
         year = int(id_str[6:10])
@@ -63,6 +66,9 @@ def parse_id(id_str):
         return None
     gender = 'male' if int(id_str[16]) % 2 == 1 else 'female'
     return gender, year, month, day
+
+
+parse_id.dropped_short = 0
 
 
 def decade_of(year):
@@ -251,6 +257,8 @@ def main():
           f'非法ID {bad_id:,}, 无名 {no_name:,} ({time.time() - t0:.0f}s)')
     print(f'  唯一人名: {len(name_total):,}, 男性占比: {gender_tot[1] / max(1, sum(gender_tot)):.4f}')
     print(f'  编码长度分布: {dict(sorted(id_len_dist.items()))}')
+    if parse_id.dropped_short:
+        print(f'  ⚠ 短编码(<17位, 含15位一代证)丢弃: {parse_id.dropped_short:,} —— 若混入新数据请检查来源, 不再静默')
     print(f'  年代分布: {dict(zip(DECADE_CLASSES, decade_tot))}')
 
     # ---------- pass 2 ----------

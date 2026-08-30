@@ -82,6 +82,11 @@ def load_engine():
 
 def evaluate(limit=0):
     engine = load_engine()
+    if not os.path.isfile(HOLDOUT_FILE):
+        print(f'错误: 评估集不存在: {HOLDOUT_FILE}')
+        print('按敏感数据处置规则，holdout 不常驻本机。')
+        print('请先重训生成: python scripts/train.py --input <有效数据.txt>，评估完成后删除。')
+        sys.exit(1)
     stats = {m: {'n': 0, 'hit': 0, 'unknown': 0, 'near': 0} for m in engine}
     t0 = time.time()
     n = 0
