@@ -1,61 +1,9 @@
-# Name Marked — 中文姓名属性识别系统
+# Name Marked — 中文姓名属性识别系统 (v2.2.1)
 
-> v2.2.0
+> 基于双层贝叶斯的中文姓名属性识别算法库：性别、出生年代、星座、四季、节气。
+> 定位：四仓协作中的**识别算法库**（name_nlp=训练管线 / name_tag=标签体系 / NameMoe=展示产品）。
 
-基于双层贝叶斯算法，从中文姓名中识别性别、出生年代、星座、四季、节气五种属性。
-3327 万条真实数据训练，332 万条真实 holdout 评估。
-
-## 目录结构
-
-```
-name_marked/
-├── namecore/                      # Python 包
-│   ├── __init__.py                  #   暴露 guess_gender 等 5 个入口
-│   ├── core.py                      #   贝叶斯引擎（平滑/对数概率/双层回退）
-│   ├── utils.py                     #   姓氏加载、名提取、位置键、繁简转换
-│   ├── gender.py                    #   性别（2类）
-│   ├── decade.py                    #   年代（6类）
-│   ├── zodiac.py                    #   星座（12类）
-│   ├── season.py                    #   四季（4类）
-│   ├── solar.py                     #   节气（24类）
-│   └── tables/                      #   频率表（10张模型表CSV + 2张导出契约 + .pkl缓存）
-│       ├── gender_char.csv          #     字符级：字-位置 → 性别计数
-│       ├── gender_name.csv          #     人名级：名 → 性别计数
-│       ├── decade_char.csv / decade_name.csv
-│       ├── zodiac_char.csv / zodiac_name.csv
-│       ├── season_char.csv / season_name.csv
-│       ├── solar_char.csv / solar_name.csv
-│       ├── unihan_year.csv          #     导出契约：字级年代分布（→ NameMoe）
-│       └── gender_guess.csv         #     导出契约：性别回退表（→ name_nlp s12）
-├── scripts/
-│   ├── train.py                     # 统一训练管线（单扫全数据，10表一次生成）
-│   ├── evaluate.py                  # holdout 评估
-│   ├── batch_guess.py               # 批处理 CLI
-│   ├── export_unihan_year.py        # 导出 unihan_year.csv
-│   └── export_gender_guess.py       # 导出 gender_guess.csv
-├── docs/
-│   ├── CHANGELOG.md                 # 更新记录
-│   └── 有效数据-格式契约.md          # 训练数据格式契约 + 敏感数据处置规则
-├── data/
-│   ├── ref/                         # 姓氏表、标准汉字表、ChineseNames缓存
-│   ├── samples/                     # 测试样本
-│   ├── holdout.txt                  # 评估集（敏感衍生物，训练时生成、评估后即删，不常驻）
-│   └── train_stats.json             # 训练统计
-├── tests/test_guessers.py           # 单元测试（42项）
-└── README.md / VERSION / LICENSE
-```
-
-## 依赖
-
-| 依赖 | 用途 | 必需 |
-|------|------|:--:|
-| Python 3.x | 运行环境 | ✓ |
-| `data/ref/nameb.txt` | 姓氏表 | ✓ |
-| `data/ref/《通用规范汉字表》（2013年）.txt` | 标准汉字表 | ✓ |
-| [OpenCC](https://github.com/BYVoid/OpenCC) | 繁简转换 | 可选 |
-| [ChineseNames](https://github.com/psychbruce/ChineseNames) | 2000s插值 | 仅训练 |
-
-零第三方强依赖。OpenCC 未安装时繁体输入原样处理（简体输入不受影响）。
+设计原理、数据血缘、踩坑史见 **[docs/HANDOVER.md](docs/HANDOVER.md)**；版本史见 **[docs/CHANGELOG.md](docs/CHANGELOG.md)**。
 
 ## 快速开始
 
@@ -70,179 +18,112 @@ guess_zodiac('刘亦菲')      # → ('天秤座', 0.1853, {...})
 guess_season('王伟')        # → ('秋', 0.2974, {...})
 guess_solar('王伟')         # → ('寒露', 0.0554, {...})
 
-# 支持繁体自动转换
-guess_gender('張偉')        # → ('男', 0.8999)
-
-# 支持三字名
-guess_gender('易烊千玺')    # → ('男', 0.8112)
+guess_gender('張偉')        # 繁体自动转换 → ('男', 0.8999)
+guess_gender('易烊千玺')    # 三字名 → ('男', 0.8112)
 ```
+
+输入模式：`auto`/`namea`（完整姓名）、`namec`（纯名）、`named`/`namee`/`namef`（单字/首字/末字）。
 
 ### 批处理 CLI
 
 ```bash
 python scripts/batch_guess.py names.txt                        # 5项全标
 python scripts/batch_guess.py names.txt --models gender,decade # 指定模型
-python scripts/batch_guess.py names.txt --mode namec           # 输入为名
+python scripts/batch_guess.py names.txt --mode namec           # 输入为纯名
 python scripts/batch_guess.py names_gbk.txt --encoding gbk     # GBK编码
-python scripts/batch_guess.py names.txt --output result.csv    # 指定输出
 ```
 
-输入首行可声明 `namea`（完整姓名）或 `namec`（名），不区分大小写、兼容 BOM。
+输入首行可声明 `namea`/`namec`（不区分大小写、兼容 BOM）。输出 CSV 为每项属性+概率两列。
 
-**输出格式：**
+## 功能模块
 
-```csv
-input,性别,性别概率,年代,年代概率,星座,星座概率,四季,四季概率,节气,节气概率
-建国,男,0.9878,1970s,0.3291,天秤座,0.1206,秋,0.3103,秋分,0.0626
-```
-
-## 核心算法
-
-### 双层贝叶斯
-
-**人名级**（名在训练集中出现 ≥10 次时启用）：
-
-```
-P(class|name) = (n_class + β·π_class) / (N + β)      β=3 先验伪计数
-```
-
-**字符级**（人名级未命中时回退，位置感知）：
-
-```
-log P(class|name) = log π_class + Σ log P(key_i|class)
-P(key|class) 用 Lidstone 平滑 (α=1)，未登录键直接跳过（不带偏见）
-```
+| 模型 | 类别数 | 算法 | 信号强度 |
+|------|:--:|------|:--:|
+| 性别 | 2 | 人名级+字符级双层贝叶斯 | 强 |
+| 年代 | 6（1950s前~2000s） | 人名级+字符级双层贝叶斯 | 中 |
+| 四季 | 4 | 同上 | 弱 |
+| 星座 | 12 | 同上 | 弱 |
+| 节气 | 24 | 同上 | 弱 |
 
 任何输入都会给出预测：有统计用统计，无统计回退先验并给出诚实的低置信度。
+星座/四季/节气与姓名本质关联极弱（随机基线 8.3%/25%/4.2%），准确率天花板低，价值在覆盖率与概率可信。
 
-### 位置编码
+## 目录结构
 
-| 后缀 | 含义 | 示例 |
+```
+name_marked/
+├── namecore/                      # Python 包
+│   ├── __init__.py                  #   暴露 guess_gender 等 5 个入口
+│   ├── core.py                      #   贝叶斯引擎（平滑/对数概率/双层回退）
+│   ├── utils.py                     #   姓氏加载、名提取、位置键、繁简转换
+│   ├── gender.py / decade.py / zodiac.py / season.py / solar.py
+│   └── tables/                      #   频率表（模型表不入库，pkl 缓存入库）+ 导出契约
+├── scripts/
+│   ├── train.py                     # 统一训练管线（单扫全数据，10表一次生成）
+│   ├── evaluate.py                  # holdout 评估（需先重训生成评估集）
+│   ├── batch_guess.py               # 批处理 CLI
+│   ├── export_unihan_year.py        # 导出 unihan_year.csv
+│   └── export_gender_guess.py       # 导出 gender_guess.csv
+├── docs/
+│   ├── HANDOVER.md                  # 交接文档（原理/决策/坑/测试体系/编码规范）
+│   ├── CHANGELOG.md                 # 更新记录
+│   └── 有效数据-格式契约.md          # 训练数据格式契约 + 敏感数据处置规则
+├── data/
+│   ├── ref/                         # 姓氏表、标准汉字表、ChineseNames缓存
+│   ├── samples/                     # 测试样本
+│   └── train_stats.json             # 训练统计（规模/分布/表行数）
+└── tests/
+    ├── test_guessers.py             # 单元测试（unittest）
+    └── anchor_check.py              # 锚点自检（产物/契约/接口断言）
+```
+
+## 对外契约清单
+
+以下产物被其他仓真实消费（已与对端代码核对），**格式冻结**，变更须先通知消费方：
+
+| 产物 | 格式 | 消费方 |
 |------|------|------|
-| `_p0` | 单字名 | 王**伟** → `伟_p0` |
-| `_p1` | 双字名第1字 | 李**建**国 → `建_p1` |
-| `_p2` | 双字名第2字 | 李建**国** → `国_p2` |
-| `_p3` | 叠字名 | 黄婷**婷** → `婷_p3` |
+| `namecore/tables/gender_name.csv` | `given_name,female,male`，utf-8 | name_nlp s12 性别直查 |
+| `namecore/tables/gender_guess.csv` | `name,boy_prob`，utf-8-sig | name_nlp s12 性别回退 |
+| `namecore/tables/unihan_year.csv` | `UniHan,Year,TF`，utf-8-sig，字升序+字内年代升序 | name_nlp s12 → NameMoe UniHan_Year |
+| `guess_gender(name) → (性别, 概率)` | 函数签名 | 直接使用方（requests 文档冻结） |
+| `guess_decade/zodiac/season/solar(name) → (标签, 概率, 分布)` | 函数签名 | 直接使用方 |
 
-三字名按首字 `_p1` + 末字 `_p2` 处理（训练数据中三字名极少，不单独建模）。
+反向输入契约：`export_gender_guess.py` 以 name_nlp 的 `NameC词频-修正.csv` 为键集来源（文件只读）；
+该表重建后必须重跑导出。
 
-### 输入模式
+再生命令：`python scripts/export_unihan_year.py` / `python scripts/export_gender_guess.py`。
 
-| mode | 含义 | 示例 | 支持模型 |
-|------|------|------|:--:|
-| `auto`/`namea` | 完整姓名，自动提取名 | `王伟` → 名=`伟` | 全部 |
-| `namec` | 名（已去除姓氏） | `建国` | 全部 |
-| `named` | 单字名 | `伟` → `伟_p0` | 全部 |
-| `namee` | 双字名首字 | `建` → `建_p1` | 全部 |
-| `namef` | 双字名末字 | `国` → `国_p2` | 全部 |
+## 环境与依赖
 
-## 模型表现
+| 依赖 | 用途 | 必需 |
+|------|------|:--:|
+| Python 3.x | 运行环境（零第三方强依赖） | ✓ |
+| `data/ref/nameb.txt` | 姓氏表 | ✓ |
+| `data/ref/《通用规范汉字表》（2013年）.txt` | 标准汉字表 | ✓ |
+| [OpenCC](https://github.com/BYVoid/OpenCC) | 繁简转换 | 可选 |
+| [ChineseNames](https://github.com/psychbruce/ChineseNames) | 2000s 插值 | 仅训练 |
 
-332 万条真实 holdout（训练时按姓名哈希切分，模型从未见过）：
+模型以 pkl 缓存分发（入库），CSV 频率表不入库；首次加载 CSV 自动生成 pkl，无 CSV 时直接读 pkl。
 
-| 模型 | 类别数 | 准确率 | ±1准确率 | 覆盖率 | 信号 |
-|------|:--:|--:|--:|--:|:--:|
-| 性别 | 2 | **88.3%** | — | 100% | 强 |
-| 年代 | 6 | **41.3%** | **82.0%** | 100% | 中 |
-| 四季 | 4 | 29.8% | — | 100% | 弱 |
-| 星座 | 12 | 10.8% | — | 100% | 弱 |
-| 节气 | 24 | 5.5% | — | 100% | 弱 |
-
-与 v1 对比（同一份 holdout；注意 v1 训练时未切分 holdout，测试数据已被其见过，数字偏高）：
-
-| 模型 | v1 准确率 | v2 准确率 | v1 ±1 | v2 ±1 |
-|------|--:|--:|--:|--:|
-| 性别 | 87.6% | **88.3%** | — | — |
-| 年代 | 32.1% | **41.3%** | 70.1% | **82.0%** |
-| 四季 | 29.3% | **29.8%** | — | — |
-| 星座 | 11.9%* | 10.8% | — | — |
-| 节气 | 7.0%* | 5.5% | — | — |
-
-\* v1 的星座/节气表包含测试集人名（数据泄漏），真实泛化能力低于所示数字；
-星座/四季/节气三类属性与姓名本质关联极弱，准确率天花板接近随机基线（8.3%/25%/4.2%），v2 的价值在于 100% 覆盖率 + 概率诚实可信。
-
-## 训练
+## 训练与评估
 
 ```bash
-python scripts/train.py --input /path/有效数据.txt
-# 可选: --holdout 0.1 --min-name-freq 10 --encoding gbk
+python scripts/train.py --input /path/有效数据.txt   # 重训（约4分钟，产出模型表+评估集）
+python scripts/evaluate.py                           # 评估（需评估集在场）
 ```
 
-输入格式：`姓名,属性编码`（GBK），编码内含出生日期与性别信息。
-**格式契约与敏感数据处置见 [docs/有效数据-格式契约.md](docs/有效数据-格式契约.md)**：
-该文件为敏感个人数据，不留档/不备份/不入 git；需要重训时向用户申请从移动硬盘拷贝，用完即删。
-两遍扫描：pass1 数据QA + 字符级计数 + holdout切分；pass2 人名级计数。
-3327 万行训练约 4 分钟，产出 10 张频率表 + `data/holdout.txt` + `data/train_stats.json`。
-`holdout.txt` 同为敏感衍生物（含姓名+编码），评估完成后即删。
+训练输入格式与**敏感数据处置规则**见 [docs/有效数据-格式契约.md](docs/有效数据-格式契约.md)：
+原文件为敏感个人数据，不留档/不备份/不入 git；评估集（holdout）为同类衍生物，用完即删，不常驻本机。
 
-### 2000s 插值
-
-训练数据止于 1999 年。2000s 类别按字插值：
-
-1. 从 [ChineseNames](https://github.com/psychbruce/ChineseNames) 取每字 `r = 2000s频次/1990s频次`
-2. 有人名/字比值时用几何均值，无比值时用相邻年代趋势外推（限幅 0.3–3.0）
-3. `count_2000s = count_1990s × r × (10/9)`（10/9 修正 2000–2008 仅覆盖 9 年）
-
-## 评估
+## 如何跑测试
 
 ```bash
-python scripts/evaluate.py                  # 评估当前模型
-python scripts/evaluate.py --limit 100000   # 限制样本数
+python tests/test_guessers.py    # 单元测试（42 项：utils/5模型/先验/模式）
+python tests/anchor_check.py     # 锚点自检（产物存在/契约格式/接口锚点/行数一致性）
 ```
 
-评估集 `data/holdout.txt` 按敏感数据规则不常驻本机；需评估时先重训生成，用完即删。
-
-## 下游导出
-
-供 name_nlp s12 性别回填使用的回退表（v2.2.0 起替代跨仓 import）：
-
-```bash
-python scripts/export_gender_guess.py  # → namecore/tables/gender_guess.csv (name,boy_prob)
-```
-
-对 name_nlp `NameC词频-修正.csv` 全集中未被 `gender_name.csv` 覆盖的名，预计算
-`guess_gender("王"+名)` 的男孩概率。**何时必须重导**：name_nlp 的 NameC 修正表重建后。
-
-供 NameMoe `UniHan_Year` 表使用的字级年代分布：
-
-```bash
-python scripts/export_unihan_year.py   # → namecore/tables/unihan_year.csv
-```
-
-由 `decade_char.csv` 跨位置（p0~p3）按字求和生成，每字每十年一行。**格式冻结**：
-
-```
-UniHan,Year,TF
-丁,1950-01-01,1527
-```
-
-- 编码 utf-8-sig；排序：字（Unicode 升序）→ 字内年代升序
-- 年代映射：`1950s前→1950-01-01`、`1960s→1960-01-01` … `2000s→2000-01-01`
-- 1950s前–1990s 为真实样本计数；**2000s 为插值估计**（见上文）
-- 年度/日度粒度暂不提供（数据稀疏，待新数据源补充）
-
-## 运行测试
-
-```bash
-python tests/test_guessers.py   # 42 项测试
-```
-
-## 性能
-
-| 场景 | 速度 |
-|------|------|
-| 全部 5 项 | 61,000 行/s |
-| 模型加载 | <0.1s（.pkl 缓存） |
-
-测试环境：Mac, Python 3.14, 30 万行输入。
-
-## v1 → v2 迁移
-
-- 旧 API `from gender_guess import guess` → `from namecore import guess_gender`
-- 旧 CLI `python batch_guess.py` → `python scripts/batch_guess.py`（参数不变）
-- 旧构建脚本 `build_*.py` → `python scripts/train.py`（单脚本全量）
-
-更新记录见 [docs/CHANGELOG.md](docs/CHANGELOG.md)。
+两者全过 = 本仓完好。测试体系详见 [docs/HANDOVER.md](docs/HANDOVER.md)。
 
 ## License
 
