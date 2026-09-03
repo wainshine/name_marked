@@ -8,6 +8,9 @@
   3. 接口锚点: guess_* 返回形状与典型姓名方向
   4. 一致性: train_stats.json 记录的行数 vs CSV 实际行数
 
+前提: CSV 模型表/契约表不入库（仅 pkl 入库），全新克隆环境 §2/§4 会报产物缺失 FAIL，
+属预期——本脚本需在训练机/产物齐备环境运行。
+
 什么算过: 全部断言 PASS，退出码 0；任一 FAIL 退出码 1
 用法: python3 tests/anchor_check.py
 """
@@ -34,6 +37,11 @@ def count_lines(path):
         return sum(1 for _ in f)
 
 
+def missing_hint(path):
+    return (f'{path} 不存在。模型/契约 CSV 不入库（仅 pkl 入库），'
+            f'全新克隆环境无 CSV 属预期；锚点自检需在训练机/产物齐备环境运行')
+
+
 def main():
     print('== 1. 产物存在性 ==')
     models = ['gender', 'decade', 'zodiac', 'season', 'solar']
@@ -47,39 +55,45 @@ def main():
 
     print('== 2. 契约格式 ==')
     uy = os.path.join(TABLES, 'unihan_year.csv')
-    with open(uy, 'rb') as f:
-        check('unihan_year utf-8-sig', f.read(3) == b'\xef\xbb\xbf')
-    with open(uy, encoding='utf-8-sig') as f:
-        r = csv.reader(f)
-        check('unihan_year 表头', next(r) == ['UniHan', 'Year', 'TF'])
-        rows = list(r)
-    check('unihan_year 行数%6==0', len(rows) % 6 == 0, f'{len(rows)}')
-    check('unihan_year 字内年代升序',
-          all(rows[i][1] <= rows[i + 1][1] for i in range(0, len(rows) - 1) if rows[i][0] == rows[i + 1][0]))
-    anchor = {row[1]: row[2] for row in rows if row[0] == '一'}
-    check('unihan_year 锚点 一', anchor.get('1950-01-01') == '4479' and anchor.get('1980-01-01') == '24243',
-          str(anchor))
+    if not os.path.isfile(uy):
+        check('unihan_year.csv 在场', False, missing_hint(uy))
+    else:
+        with open(uy, 'rb') as f:
+            check('unihan_year utf-8-sig', f.read(3) == b'\xef\xbb\xbf')
+        with open(uy, encoding='utf-8-sig') as f:
+            r = csv.reader(f)
+            check('unihan_year 表头', next(r) == ['UniHan', 'Year', 'TF'])
+            rows = list(r)
+        check('unihan_year 行数%6==0', len(rows) % 6 == 0, f'{len(rows)}')
+        check('unihan_year 字内年代升序',
+              all(rows[i][1] <= rows[i + 1][1] for i in range(0, len(rows) - 1) if rows[i][0] == rows[i + 1][0]))
+        anchor = {row[1]: row[2] for row in rows if row[0] == '一'}
+        check('unihan_year 锚点 一', anchor.get('1950-01-01') == '4479' and anchor.get('1980-01-01') == '24243',
+              str(anchor))
 
     gg = os.path.join(TABLES, 'gender_guess.csv')
-    with open(gg, 'rb') as f:
-        check('gender_guess utf-8-sig', f.read(3) == b'\xef\xbb\xbf')
-    with open(gg, encoding='utf-8-sig') as f:
-        r = csv.reader(f)
-        check('gender_guess 表头', next(r) == ['name', 'boy_prob'])
-        ok = True
-        for i, row in enumerate(r):
-            if i >= 100000:
-                break
-            try:
-                v = float(row[1])
-                if not (0.0 <= v <= 1.0):
+    if not os.path.isfile(gg):
+        check('gender_guess.csv 在场', False, missing_hint(gg))
+    else:
+        with open(gg, 'rb') as f:
+            check('gender_guess utf-8-sig', f.read(3) == b'\xef\xbb\xbf')
+        with open(gg, encoding='utf-8-sig') as f:
+            r = csv.reader(f)
+            check('gender_guess 表头', next(r) == ['name', 'boy_prob'])
+            ok = True
+            for i, row in enumerate(r):
+                if i >= 100000:
+                    break
+                try:
+                    v = float(row[1])
+                    if not (0.0 <= v <= 1.0):
+                        ok = False
+                        break
+                except (ValueError, IndexError):
                     ok = False
                     break
-            except (ValueError, IndexError):
-                ok = False
-                break
-        check('gender_guess 概率∈[0,1] (抽样10万)', ok)
-    check('gender_guess 行数>400万', count_lines(gg) > 4000000)
+            check('gender_guess 概率∈[0,1] (抽样10万)', ok)
+        check('gender_guess 行数>400万', count_lines(gg) > 4000000)
 
     print('== 3. 接口锚点 ==')
     sys.path.insert(0, BASE_DIR)
@@ -104,7 +118,11 @@ def main():
     with open(os.path.join(BASE_DIR, 'data', 'train_stats.json'), encoding='utf-8') as f:
         stats = json.load(f)
     for key, expected in stats['table_rows'].items():
-        actual = count_lines(os.path.join(TABLES, f'{key}.csv')) - 1
+        csv_path = os.path.join(TABLES, f'{key}.csv')
+        if not os.path.isfile(csv_path):
+            check(f'{key}.csv 在场', False, missing_hint(csv_path))
+            continue
+        actual = count_lines(csv_path) - 1
         check(f'{key} 行数==stats', actual == expected, f'{actual} vs {expected}')
 
     print(f'\n结果: {_pass} PASS, {_fail} FAIL')

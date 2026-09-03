@@ -196,8 +196,142 @@ class TestSolarGuesser(_DistModelTestBase, unittest.TestCase):
         super().setUpClass()
 
 
-class TestPriors(unittest.TestCase):
+class TestTrainLabels(unittest.TestCase):
+    """train.py 标签函数边界测试 + 常量一致性（train/evaluate/namecore 三处重复的漂移兜底）"""
 
+    @classmethod
+    def setUpClass(cls):
+        from scripts import train, evaluate
+        cls.train = train
+        cls.evaluate = evaluate
+
+    def setUp(self):
+        self.train.parse_id.dropped_short = 0
+
+    # ---- parse_id ----
+
+    def _make_id(self, year=1985, month=5, day=12, gender_digit='3'):
+        # 虚构测试编码：地区码用 000000（parse_id 不校验地区码，仅取 7~14 位日期与第 17 位性别）
+        return f'000000{year:04d}{month:02d}{day:02d}99{gender_digit}'
+
+    def test_parse_id_male(self):
+        self.assertEqual(self.train.parse_id(self._make_id(gender_digit='3')),
+                         ('male', 1985, 5, 12))
+
+    def test_parse_id_female(self):
+        self.assertEqual(self.train.parse_id(self._make_id(gender_digit='2')),
+                         ('female', 1985, 5, 12))
+
+    def test_parse_id_short_counted(self):
+        self.assertIsNone(self.train.parse_id('123456789012345'))  # 15位一代证
+        self.assertEqual(self.train.parse_id.dropped_short, 1)
+
+    def test_parse_id_bad_month(self):
+        self.assertIsNone(self.train.parse_id(self._make_id(month=13)))
+
+    def test_parse_id_bad_day(self):
+        self.assertIsNone(self.train.parse_id(self._make_id(day=32)))
+
+    def test_parse_id_year_bounds(self):
+        self.assertIsNone(self.train.parse_id(self._make_id(year=1929)))
+        self.assertIsNone(self.train.parse_id(self._make_id(year=2021)))
+        self.assertIsNotNone(self.train.parse_id(self._make_id(year=1930)))
+        self.assertIsNotNone(self.train.parse_id(self._make_id(year=2020)))
+
+    def test_parse_id_non_digit(self):
+        self.assertIsNone(self.train.parse_id('0000001985AB12993'))
+
+    # ---- decade_of ----
+
+    def test_decade_of_bounds(self):
+        t = self.train.decade_of
+        self.assertEqual(t(1930), 0)
+        self.assertEqual(t(1959), 0)
+        self.assertEqual(t(1960), 1)
+        self.assertEqual(t(1969), 1)
+        self.assertEqual(t(1970), 2)
+        self.assertEqual(t(1999), 4)
+        self.assertEqual(t(2000), 5)
+        self.assertEqual(t(2020), 5)
+
+    # ---- zodiac_of ----
+
+    def test_zodiac_of_bounds(self):
+        z = self.train.zodiac_of
+        self.assertEqual(z(1, 19), 0)    # 摩羯座末
+        self.assertEqual(z(1, 20), 1)    # 水瓶座始
+        self.assertEqual(z(2, 18), 1)
+        self.assertEqual(z(2, 19), 2)    # 双鱼座始
+        self.assertEqual(z(3, 20), 2)
+        self.assertEqual(z(3, 21), 3)    # 白羊座始
+        self.assertEqual(z(11, 22), 10)  # 天蝎座末
+        self.assertEqual(z(11, 23), 11)  # 射手座始
+        self.assertEqual(z(12, 21), 11)
+        self.assertEqual(z(12, 22), 0)   # 跨年回摩羯座
+
+    # ---- season_of ----
+
+    def test_season_of_bounds(self):
+        s = self.train.season_of
+        self.assertEqual(s(2), 3)
+        self.assertEqual(s(3), 0)
+        self.assertEqual(s(5), 0)
+        self.assertEqual(s(6), 1)
+        self.assertEqual(s(8), 1)
+        self.assertEqual(s(9), 2)
+        self.assertEqual(s(11), 2)
+        self.assertEqual(s(12), 3)
+
+    # ---- solar_of ----
+
+    def test_solar_of_bounds(self):
+        l = self.train.solar_of
+        self.assertEqual(l(1, 5), 23)    # 冬至末（跨年区间）
+        self.assertEqual(l(1, 6), 0)     # 小寒始
+        self.assertEqual(l(1, 19), 0)
+        self.assertEqual(l(1, 20), 1)    # 大寒始
+        self.assertEqual(l(2, 3), 1)
+        self.assertEqual(l(2, 4), 2)     # 立春始
+        self.assertEqual(l(12, 21), 22)  # 大雪末
+        self.assertEqual(l(12, 22), 23)  # 冬至始（跨年区间）
+
+    def test_solar_of_full_year_covered(self):
+        for m in range(1, 13):
+            for d in (1, 15, 28):
+                self.assertGreaterEqual(self.train.solar_of(m, d), 0, f'{m}-{d}')
+
+    # ---- 常量一致性（三处重复定义的漂移兜底）----
+
+    def test_classes_consistency(self):
+        from namecore.decade import DecadeGuesser
+        from namecore.zodiac import ZodiacGuesser
+        from namecore.season import SeasonGuesser
+        from namecore.solar import SolarGuesser
+        pairs = [
+            ('DECADE_CLASSES', DecadeGuesser.CLASSES),
+            ('ZODIACS', ZodiacGuesser.CLASSES),
+            ('SEASONS', SeasonGuesser.CLASSES),
+            ('SOLAR_TERMS', SolarGuesser.CLASSES),
+        ]
+        for attr, classes in pairs:
+            with self.subTest(attr=attr):
+                self.assertEqual(getattr(self.train, attr), list(classes))
+                self.assertEqual(getattr(self.evaluate, attr), list(classes))
+
+    def test_solar_ranges_consistency(self):
+        self.assertEqual(self.train.SOLAR_RANGES, self.evaluate.SOLAR_RANGES)
+
+    def test_true_labels_agrees_with_train(self):
+        """evaluate.true_labels 与 train 标签函数对同一编码产出一致"""
+        labels = self.evaluate.true_labels(self._make_id(year=1975, month=3, day=21))
+        self.assertEqual(labels['gender'], '男')
+        self.assertEqual(labels['decade'], '1970s')
+        self.assertEqual(labels['zodiac'], '白羊座')
+        self.assertEqual(labels['season'], '春')
+        self.assertEqual(labels['solar'], '春分')
+
+
+class TestPriors(unittest.TestCase):
     def test_gender_priors(self):
         from namecore.gender import GenderGuesser
         g = GenderGuesser()

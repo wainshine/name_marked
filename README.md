@@ -1,4 +1,4 @@
-# Name Marked — 中文姓名属性识别系统 (v2.2.1)
+# Name Marked — 中文姓名属性识别系统 (v2.2.2)
 
 > 基于双层贝叶斯的中文姓名属性识别算法库：性别、出生年代、星座、四季、节气。
 > 定位：四仓协作中的**识别算法库**（name_nlp=训练管线 / name_tag=标签体系 / NameMoe=展示产品）。
@@ -119,7 +119,7 @@ python scripts/evaluate.py                           # 评估（需评估集在�
 ## 如何跑测试
 
 ```bash
-python tests/test_guessers.py    # 单元测试（42 项：utils/5模型/先验/模式）
+python tests/test_guessers.py    # 单元测试（utils/5模型/先验/模式/train 标签函数边界）
 python tests/anchor_check.py     # 锚点自检（产物存在/契约格式/接口锚点/行数一致性）
 ```
 

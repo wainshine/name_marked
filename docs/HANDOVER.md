@@ -13,6 +13,7 @@
 | v2.1.0 | 2026-08-28 | 按 name_nlp 需求导出 `unihan_year.csv`（NameMoe UniHan_Year 真数据源），验收全过 | name_nlp `docs/requests/name_marked-unihan-year.md` |
 | v2.2.0 | 2026-08-30 | 四仓联合审计修复：新增 `export_gender_guess.py` 文件契约（消灭跨仓 import）+ 敏感数据格式契约 + train.py 短编码显式计数 | docs/CHANGELOG.md v2.2.0 |
 | v2.2.1 | 2026-08-31 | 文档体系统一改造（本文档落地）+ holdout 敏感衍生物清理 | docs/CHANGELOG.md v2.2.1 |
+| v2.2.2 | 2026-09-03 | 主会话2代自审计修复：anchor_check 缺 CSV 健壮化 + 训练标签函数边界测试 + 文档不一致清理 | docs/CHANGELOG.md v2.2.2 |
 
 关键背景：训练真值 `有效数据.txt` 为敏感个人数据，上游 yiname 的原始输入已丢失、**不可再生**；移动硬盘为唯一真源，本机不常驻（契约见 [有效数据-格式契约.md](有效数据-格式契约.md)）。
 
@@ -98,16 +99,20 @@ holdout.txt 是同类衍生物，评估后即删（2026-08-30 已删现存副本
 8. **BOM 字面量**：源码里不可见字符曾混入 `lstrip('﻿')`，一律用 `'\ufeff'` 转义
 9. **评估集不常驻**：evaluate.py 需要先重训生成 holdout；别惊讶于"评估集不存在"报错，这是设计
 10. **3 字名/4 字以上名**：训练数据无 3 字名（§3.3）；4 字以上名 pos_keys 返回空 → 输出"未知"（少数民族名，设计如此）
+11. **train_stats 字段名误导**：`unique_given_names` 实为"频次≥10 的人名数"（恰等于 `*_name` 表行数），非全量唯一人名数——后者在 pass2 前已释放未登记。字段名为历史遗留，无消费方（anchor_check 只读 `table_rows`），改名收益低于留痕成本，特此说明
 
 ## 5. 测试体系说明
 
 ### 怎么跑
 
 ```bash
-python tests/test_guessers.py    # 单元测试（unittest, 42 项, ~0.2s）
-python tests/anchor_check.py     # 锚点自检（39 项只读断言, ~5s, 退出码 0/1）
+python tests/test_guessers.py    # 单元测试（unittest, ~0.2s）
+python tests/anchor_check.py     # 锚点自检（只读断言, ~5s, 退出码 0/1）
 python scripts/evaluate.py       # 全量评估（需 holdout 在场, ~100s/332万行）
 ```
+
+> 前提：CSV 模型表/契约表不入库（仅 pkl 入库，§3.5），anchor_check 的 §2 契约格式/§4 一致性
+> 依赖 CSV 在场，**需在训练机/产物齐备环境运行**；全新克隆环境下这些项会报产物缺失 FAIL，属预期。
 
 ### 测什么
 
@@ -131,7 +136,7 @@ python scripts/evaluate.py       # 全量评估（需 holdout 在场, ~100s/332�
 
 ### 什么算过
 
-- 单元测试 42 项全 OK + 锚点 39 项全 PASS（退出码 0）
+- 单元测试全 OK + 锚点自检全 PASS（退出码 0）——用例数随迭代增长，以实跑输出为准，不在文档硬编码
 - 重训后 `evaluate.py` 全量对账上表：性别/年代波动 **±1pp 内**可接受，超出必须解释（数据变了？代码变了？）
 - 契约文件改动后：anchor_check 全过 + 通知 name_nlp 侧验收
 
@@ -197,7 +202,7 @@ python scripts/evaluate.py       # 全量评估（需 holdout 在场, ~100s/332�
 
 ```bash
 cd /Users/wainshine/newAI/name_marked
-python3 tests/anchor_check.py        # 应全 PASS，退出码 0
+python3 tests/anchor_check.py        # 产物齐备时应全 PASS，退出码 0；全新克隆缺 CSV 时 §2/§4 报缺失属预期（§5）
 python3 tests/test_guessers.py       # 应全 OK
 python3 -c "from namecore import guess_gender; print(guess_gender('王伟'))"   # ('男', ~0.9)
 head -2 namecore/tables/unihan_year.csv     # BOM + UniHan,Year,TF

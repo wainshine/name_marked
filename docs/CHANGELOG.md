@@ -7,6 +7,23 @@
 > - 主版本晋升（→ v2.0.0）**仅当项目推翻重来**；例外：v1.9.9 用尽才允许 v2.0.0
 > - **git 提交/发版由用户本人执行**，Agent 只改代码与文档，绝不代提交
 
+## v2.2.2 (2026-09-03)
+
+### 自审计修复（主会话2代接手审计）
+
+- **为什么改**：新主会话接手时做全仓自审计（代码↔文档一致性/bug/测试匹配性），发现 1 处健壮性缺口 + 2 处文档不一致 + 1 处测试覆盖缺口，集中修复。无算法/契约变更。
+- **改了什么**：
+  - `tests/anchor_check.py`：§2 契约格式/§4 一致性在 CSV 缺失时改为显式 FAIL + 提示（原为 `FileNotFoundError` traceback）——CSV 不入库（仅 pkl 入库），全新克隆环境此前会直接崩溃，与 HANDOVER §10"接手自检第一步"矛盾
+  - `tests/test_guessers.py`：新增 `TestTrainLabels`（15 项）——`parse_id`/`decade_of`/`zodiac_of`/`season_of`/`solar_of` 边界测试，及 train/evaluate/namecore 三处重复常量的一致性断言（漂移兜底）；此前标签函数零测试，边界写错会静默污染 10 张表
+  - 合规审查跟进：`_make_id` 虚构测试编码的地区码由真实区划码改为 `000000`，消除真实身份证号外观（全仓四类合规扫描其余零命中：隐私/违法/破解类/指定企业名）
+  - `namecore/__init__.py` docstring：删除 v1 遗留的过期示例数字（0.99/0.86），改指向 README（审计原则 7）
+  - `namecore/utils.py` docstring："三字名极少"→"个数为 0"，与 HANDOVER §3.3 及 train_stats（no_name_rows=0）对齐
+  - HANDOVER：§4 坑清单新增第 11 条（train_stats `unique_given_names` 字段名误导说明）；§5/§10 注明 anchor_check 需训练机产物在场的前提；§5 测试计数改机制描述（原则 7）
+  - README：测试节用例计数改机制描述
+- **新契约是什么**：无新产物契约；文档/测试层面新增约定——train.py 标签函数改动必须同步过 `TestTrainLabels`
+- **什么操作会破坏它**：改 train/evaluate 的类别常量或边界函数而不更新新测试；删 anchor_check 缺失提示断言
+- **对端仓库条目引用**：无（不触及 3 个对外契约与 5 个函数签名，§9 不变量全部保持）
+
 ## v2.2.1 (2026-08-31)
 
 ### 文档体系统一改造（四仓统一标准 v2）

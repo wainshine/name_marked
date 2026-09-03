@@ -5,16 +5,18 @@ namecore — 中文姓名属性识别
 用法:
     from namecore import guess_gender, guess_decade, guess_zodiac, guess_season, guess_solar
 
-    guess_gender('王伟')          # → ('男', 0.99)
-    guess_decade('张宇轩')        # → ('2000s', 0.86, {...})
-    guess_zodiac('刘亦菲')        # → ('天秤座', 0.10, {...})
-    guess_season('王伟')          # → ('秋', 0.30, {...})
-    guess_solar('王伟')           # → ('寒露', 0.06, {...})
+    guess_gender('王伟')          # → ('男', 概率)
+    guess_decade('张宇轩')        # → ('2000s', 概率, {...})
+    guess_zodiac('刘亦菲')        # → (星座, 概率, {...})
+    guess_season('王伟')          # → (季节, 概率, {...})
+    guess_solar('王伟')           # → (节气, 概率, {...})
+
+    # 带准确示例数值的用法见 README「快速开始」（随版本验收，以实测为准）
 
 输入模式: auto/namea(完整姓名) namec(名) named/namee/namef(单字/首字/末字)
 """
 
-__version__ = '2.2.1'
+__version__ = '2.2.2'
 
 from .gender import guess as guess_gender
 from .decade import guess as guess_decade
