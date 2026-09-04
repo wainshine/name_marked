@@ -58,7 +58,9 @@ class BayesGuesser:
         table = self._load_csv(csv_path)
         try:
             with open(pkl_path, 'wb') as f:
-                pickle.dump(table, f, protocol=pickle.HIGHEST_PROTOCOL)
+                # 固定 protocol 4（Python 3.4+ 可读）：pkl 入库分发，不用 HIGHEST_PROTOCOL
+                # 以免低版本消费方读不了（见 HANDOVER §3.5）
+                pickle.dump(table, f, protocol=4)
         except OSError:
             pass
         return table

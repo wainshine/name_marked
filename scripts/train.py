@@ -117,7 +117,7 @@ def _download_cn():
         return CN_CACHE
     try:
         print(f'下载 ChineseNames: {CN_URL}')
-        subprocess.run(['curl', '-sL', '--insecure', '-o', CN_CACHE, CN_URL],
+        subprocess.run(['curl', '-sL', '-o', CN_CACHE, CN_URL],
                        check=True, timeout=60)
         if os.path.getsize(CN_CACHE) > 1000:
             return CN_CACHE

@@ -7,6 +7,20 @@
 > - 主版本晋升（→ v2.0.0）**仅当项目推翻重来**；例外：v1.9.9 用尽才允许 v2.0.0
 > - **git 提交/发版由用户本人执行**，Agent 只改代码与文档，绝不代提交
 
+## v2.2.3 (2026-09-03)
+
+### 安全与健壮性复查修复
+
+- **为什么改**：v2.2.2 自审计后第二轮"挑刺"复查，发现 1 处主动降低安全标准的代码 + 1 处分发兼容隐患 + 1 处原子写不一致 + 2 处文档留痕缺口。
+- **改了什么**：
+  - `scripts/train.py`：`_download_cn` 去掉 `curl --insecure`（原关闭 TLS 证书校验，存在中间人篡改 ChineseNames 数据 → 污染 2000s 插值列的风险）
+  - `namecore/core.py`：pkl 缓存固定 `protocol=4`（Python 3.4+ 可读），弃用 `HIGHEST_PROTOCOL`——入库分发的 pkl 此前要求高版本 Python 才能读；10 张 pkl 已按 protocol 4 从 CSV 重建，数据逐表核对不变（锚点行数一致性 + 接口锚点全过）
+  - `scripts/batch_guess.py`：输出改原子写（`.tmp` + `os.replace`，对齐 export_gender_guess.py 先例），中断不再留半截 CSV
+  - `docs/HANDOVER.md`：§3.5 补 pkl 盲信的信任假设声明 + protocol 4 决策；§3.8 补 2000s 插值的两个兜底分支（全局 r 兜底 0.7 / n80 估算分支）与人名级几何均值说明；§8 路线图关闭 skill 副本同步项（用户已手动删除 `~/.agents/skills/name-marked`，不再维护）
+- **新契约是什么**：无产物契约变更；新增约定——pkl 分发协议固定 4，重训后 core 自动按此重建
+- **什么操作会破坏它**：把 `--insecure` 加回 curl；把 pickle 协议改回 HIGHEST_PROTOCOL；绕过 `.tmp` 直接写输出文件
+- **对端仓库条目引用**：无（不触及 3 个对外契约与函数签名；pkl 数据内容不变仅协议降级，下游无感）
+
 ## v2.2.2 (2026-09-03)
 
 ### 自审计修复（主会话2代接手审计）

@@ -99,8 +99,9 @@ def main():
     print(f'输出: {outpath}')
 
     t_start = time.time()
+    tmp_out = outpath + '.tmp'  # 原子写：先写 .tmp，成功后 os.replace（中断不留半截文件）
     with open(args.input, 'r', encoding=args.encoding, errors='replace') as fin, \
-         open(outpath, 'w', encoding='utf-8-sig') as fout:
+         open(tmp_out, 'w', encoding='utf-8-sig') as fout:
         first = fin.readline().strip()
         mode = detect_mode(first)
         first_is_data = mode is None
@@ -125,6 +126,7 @@ def main():
                 elapsed = time.time() - t_start
                 print(f'  已处理 {count // 10000}W (速度: {count / elapsed:.0f} 行/s)')
 
+    os.replace(tmp_out, outpath)
     elapsed = time.time() - t_start
     print(f'完成: {count:,} 行, 耗时 {elapsed:.1f}s ({count / max(elapsed, 0.01):.0f} 行/s)')
 
