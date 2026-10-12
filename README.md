@@ -1,4 +1,4 @@
-# Name Marked — 中文姓名属性识别系统 (v2.2.3)
+# Name Marked — 中文姓名属性识别系统 (v2.2.4)
 
 > 基于双层贝叶斯的中文姓名属性识别算法库：性别、出生年代、星座、四季、节气。
 > 定位：四仓协作中的**识别算法库**（name_nlp=训练管线 / name_tag=标签体系 / NameMoe=展示产品）。
@@ -84,7 +84,7 @@ name_marked/
 | 产物 | 格式 | 消费方 |
 |------|------|------|
 | `namecore/tables/gender_name.csv` | `given_name,female,male`，utf-8 | name_nlp s12 性别直查 |
-| `namecore/tables/gender_guess.csv` | `name,boy_prob`，utf-8-sig | name_nlp s12 性别回退 |
+| `namecore/tables/gender_guess.csv` | `name,boy_prob`，utf-8-sig；键集=NameC 全集 − `gender_name` 已覆盖名（两表**互斥且互补**）；4 条隐含口径见 [name_nlp CONTRACTS 注 3](../name_nlp/docs/CONTRACTS.md#1-入向契约name_nlp-只读谁) | name_nlp s12 性别回退 |
 | `namecore/tables/unihan_year.csv` | `UniHan,Year,TF`，utf-8-sig，字升序+字内年代升序 | name_nlp s12 → NameMoe UniHan_Year |
 | `guess_gender(name) → (性别, 概率)` | 函数签名 | 直接使用方（requests 文档冻结） |
 | `guess_decade/zodiac/season/solar(name) → (标签, 概率, 分布)` | 函数签名 | 直接使用方 |
@@ -93,6 +93,12 @@ name_marked/
 该表重建后必须重跑导出。
 
 再生命令：`python scripts/export_unihan_year.py` / `python scripts/export_gender_guess.py`。
+
+> **对账声明**（快照，非锚点；锚点见 `tests/anchor_check.py`）：已与 name_nlp **v2.1.0** 对账（2026-10-12）——
+> 三表表头/编码一致；`gender_guess` 与 `gender_name` **互斥且互补**（`gender_guess == NameC − gender_name`，
+> 交集 0、`NameC` 覆盖缺口 0）；`unihan_year` 40,416 行与对方 s12 `uy_rows` 一致（近 5 次运行零漂移，
+> 与已部署 `UniHan_Year.csv` 键集相等、TF 逐值 0 差异）。对端三条集合关系由 name_nlp `run_docchecks` C6 守；
+> 本仓侧由 `scripts/export_gender_guess.py` 收尾的"关系自证"守。下次对账只改本行日期与计数，勿升级为行数锚点。
 
 ## 环境与依赖
 

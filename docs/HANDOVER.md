@@ -15,6 +15,7 @@
 | v2.2.1 | 2026-08-31 | 文档体系统一改造（本文档落地）+ holdout 敏感衍生物清理 | docs/CHANGELOG.md v2.2.1 |
 | v2.2.2 | 2026-09-03 | 主会话2代自审计修复：anchor_check 缺 CSV 健壮化 + 训练标签函数边界测试 + 文档不一致清理 | docs/CHANGELOG.md v2.2.2 |
 | v2.2.3 | 2026-09-03 | 安全与健壮性复查修复：curl 去 --insecure + pkl 固定 protocol 4 + batch_guess 原子写 + 插值兜底补文档 | docs/CHANGELOG.md v2.2.3 |
+| v2.2.4 | 2026-10-12 | 跨仓对账登记（name_nlp 同步单 §三）+ 4 条隐含口径成文（§9 第 10-13 条）+ `export_gender_guess.py` 关系自证 + 锚点值改指 anchor_check | docs/CHANGELOG.md v2.2.4 |
 
 关键背景：训练真值 `有效数据.txt` 为敏感个人数据，上游 yiname 的原始输入已丢失、**不可再生**；移动硬盘为唯一真源，本机不常驻（契约见 [有效数据-格式契约.md](有效数据-格式契约.md)）。
 
@@ -33,7 +34,7 @@ GitHub ChineseNames ─字频比值→ decade_* 2000s列 (插值估计, 非真�
 decade_char.csv ─export_unihan_year.py→ unihan_year.csv ──▶ name_nlp s12⑦ ─▶ NameMoe UniHan_Year
 gender_name.csv ───────────────────────────────────────────▶ name_nlp s12④ 直查
 name_nlp NameC词频-修正.csv (键集, 反向输入只读)
-  └─ export_gender_guess.py (对未覆盖名预算 guess_gender("王"+名))
+  └─ export_gender_guess.py (回退预算：对 NameC 中直查表未覆盖的名预算；调用口径见 CONTRACTS 注 3)
        └─ gender_guess.csv ───────────────────────────────▶ name_nlp s12④ 回退
 ```
 
@@ -86,7 +87,7 @@ r = ChineseNames 该字 2000s/1990s 频次比（无比值时相邻年代趋势�
 name_nlp s12 曾 `sys.path.insert` 后 `from namecore import guess_gender`（52 万次/轮回退），
 本仓重构即崩下游（`namemarked→namecore` 改名真实断过一次）。修复：把回退调用预算成
 `gender_guess.csv`（name,boy_prob），name_nlp 改读文件，逐值对账 0 差异（见 name_nlp CHANGELOG v1.3.1）。
-调用方式锁定 `guess_gender("王"+名)` 拼万能姓，与历史调用逐字一致。
+调用口径（拼万能姓 `guess_gender("王"+名)` 等 4 条隐含约定）**以 [name_nlp docs/CONTRACTS.md](../../name_nlp/docs/CONTRACTS.md#1-入向契约name_nlp-只读谁) §1 注 3 为准**，本仓不复述。
 
 ### 3.10 敏感数据处置（用户裁定 2026-08-30）
 `有效数据.txt` 不留档/不备份/不入 git；重训需用户从移动硬盘拷回，用完即删；本机副本用户亲删。
@@ -125,9 +126,12 @@ python scripts/evaluate.py       # 全量评估（需 holdout 在场, ~100s/332�
 - **单元测试**：utils（姓氏/位置键/汉字表）、5 模型典型姓名方向、模式一致性、先验和为 1、生僻字不回"未知"
 - **锚点自检**（tests/anchor_check.py，改产物/契约后必过）：
   - 产物存在：10 pkl + 2 契约 CSV
-  - 契约格式：unihan_year（BOM/表头/行数%6/字内升序/锚点 `一:1950=4479,1980=24243`）、gender_guess（BOM/表头/概率∈[0,1]/行数>400万）
+  - 契约格式：unihan_year（BOM/表头/行数%6/字内升序/锚点值 `一` 两档年代）、gender_guess（BOM/表头/概率∈[0,1]/行数下限）
   - 接口锚点：`guess_gender('王伟')→男`、`('刘亦菲')→女`、`('張偉')→男`（繁体）、`guess_decade('张宇轩')→90s/00s`、5 模型返回形状
   - 一致性：train_stats.json 登记行数 == CSV 实际行数
+
+  > **具体断言值（锚点、抽样下限等常量）不在本文硬编码，唯一出处是 [tests/anchor_check.py](../tests/anchor_check.py) §2/§3**——
+  > 数字更替只改该脚本；本表只描述"测什么"。脚本 FAIL 时会打印期望值与实测值，足够定位。
 - **评估基线**（v2.2.0 训练批，332 万真实 holdout，模型从未见过）：
 
   | 模型 | 准确率 | ±1 | 覆盖率 |
@@ -194,15 +198,29 @@ python scripts/evaluate.py       # 全量评估（需 holdout 在场, ~100s/332�
 
 ## 9. 不变量清单（改动违反任一条 = 破坏下游）
 
+> 本清单与 README「对外契约清单」同属对外契约。**对方侧的口径书写处是 [name_nlp docs/CONTRACTS.md](../../name_nlp/docs/CONTRACTS.md#1-入向契约name_nlp-只读谁) §1（I1-I3）+ 注 3**；
+> 本文只登记"本仓必须保持什么"，不抄对方的理由与实现细节。对端三条集合关系由 name_nlp `run_docchecks` C6 守，本仓由 `export_gender_guess.py` 收尾的关系自证守。
+
 1. `gender_name.csv` 列序：`given_name,female,male`（name_nlp 按位置读 row[0..2]）
 2. `guess_gender(name, mode='auto') → (性别, 概率)` 2 元组签名
 3. `guess_decade/zodiac/season/solar(name, mode='auto') → (标签, 概率, 分布)` 3 元组签名
 4. `unihan_year.csv`：表头 `UniHan,Year,TF`、utf-8-sig、字 Unicode 升序+字内年代升序、年代映射 1950s前→1950-01-01 起 6 档
-5. `gender_guess.csv`：表头 `name,boy_prob`、utf-8-sig、键集=name_nlp NameC 修正表未被 gender_name.csv 覆盖的名
+5. `gender_guess.csv`：表头 `name,boy_prob`、utf-8-sig、键集 = name_nlp NameC 修正表**全集 − `gender_name` 已覆盖名**
+   （两表**互斥且互补**：交集必须为空，并集必须覆盖 NameC 键集；违反任一条 → 对方 s12 静默兜底 0.5）
 6. 位置键格式 `{字}_{p0|p1|p2|p3}`；pos_keys：单字 p0、双字 p1/p2、叠字 p3、三字 p1+p2
 7. 各模型 PRIORS 和为 1
 8. 年代 6 类：`1950s前,1960s,1970s,1980s,1990s,2000s`（顺序即 ±1 评估的邻接定义）
 9. 契约变更必须提前通知 name_nlp（docs/requests 机制），禁止静默改格式
+10. `boy_prob` 以 `f"{boy:.4f}"` **四位小数**写出（少位即对下游静默降精度）
+11. 空值/缺失键的约定值是 **0.5**（非 0）：对端 s12 对回退表外名取常数 0.5，本表若漏名即静默走该分支
+12. 列名语义：`male/total → Boy`、`female/total → Girl`（性别比例取自直查表两列之和，不是全量人名计数）
+13. 对方 s12 只按 **位置** 读 `gender_name.csv`（`row[0..2]`）、按 **列名** 读 `gender_guess.csv`（`name`/`boy_prob`），
+    `unihan_year.csv` 按位置流式读 `row[0..2]`——即**本仓无需向对端提供任何"中文字段键名"**；本表只冻结列名与列序。
+    真正的键名依赖在**对端内部**（`In.UNIHAN` 的 `_strokes`/`_pinyinA` 等由 name_nlp `shared/unihan.py` 消费），不在 I1-I3 契约内。
+
+> 第 10-13 条此前双方都未成文（2026-10-12 对账补齐）。第 13 条**已按实测修订**：对方 [CONTRACTS.md](../../name_nlp/docs/CONTRACTS.md#1-入向契约name_nlp-只读谁) 注 3 第 4 条写
+> "s12 取上游表中文字段键名（`_strokes`/`_pinyinA` 等）"，但该键名在四仓代码/产物中均不存在（四仓定向 grep 为空），
+> 且 s12 的拼音/笔画由 name_nlp `shared/pinyin.py` + `shared/unihan.py` 本地计算、不读本仓——故该条**不适用本仓 I1-I3**，已回执对端。
 
 ## 10. 接手自检清单（10 分钟）
 

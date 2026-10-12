@@ -16,7 +16,7 @@ namecore — 中文姓名属性识别
 输入模式: auto/namea(完整姓名) namec(名) named/namee/namef(单字/首字/末字)
 """
 
-__version__ = '2.2.3'
+__version__ = '2.2.4'
 
 from .gender import guess as guess_gender
 from .decade import guess as guess_decade
